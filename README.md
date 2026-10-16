@@ -4,11 +4,11 @@
 >
 > Este **não é um produto oficial da Databricks**. Trata-se de um exemplo construído de forma independente, disponibilizado "como está" (*as is*), sem garantias de qualquer tipo.
 >
-> **Não existe suporte** para esta solução — nem da Databricks, nem da autora. Use, adapte e valide por sua conta e risco antes de utilizá-la em qualquer ambiente.
+> **Não existe suporte** para esta solução — nem do Databricks, nem do(a) autor(a). Use, adapte e valide por sua conta e risco antes de utilizá-la em qualquer ambiente.
 
 ## O que é
 
-Dashboard AI/BI (Lakeview) para monitorar o uso de **Delta Sharing Databricks-to-Open (D2O)** a partir das *system tables* do Unity Catalog.
+Databricks Dashboard para monitorar o uso de **Delta Sharing Databricks-to-Open (D2O)** a partir das *system tables* do Unity Catalog.
 
 ### Páginas
 
@@ -40,7 +40,7 @@ Dashboard AI/BI (Lakeview) para monitorar o uso de **Delta Sharing Databricks-to
 ## Como importar
 
 1. Faça o download do arquivo `Monitoramento Delta Sharing (D2O).lvdash.json`
-2. No workspace Databricks, vá em **Dashboards** → **Create dashboard** → **Import dashboard from file** (ou importe o arquivo pelo **Workspace** → **Import**)
+2. No workspace Databricks, vá em **Dashboards** → **Create dashboard** → **Import dashboard from file** 
 3. Selecione o SQL Warehouse e publique
 
 Alternativamente, via CLI:

@@ -1,0 +1,2712 @@
+{
+  "datasets": [
+    {
+      "name": "heatmap_atividade",
+      "displayName": "Atividade Dia/Hora",
+      "queryLines": [
+        "SELECT\n",
+        "  DAYOFWEEK(event_time) AS dia_semana,\n",
+        "  HOUR(event_time) AS hora,\n",
+        "  COUNT(*) AS total,\n",
+        "  request_params.share AS share_name\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'generateTemporaryTableCredential'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  dia_semana,\n",
+        "  hora,\n",
+        "  share_name\n",
+        "ORDER BY\n",
+        "  dia_semana,\n",
+        "  hora"
+      ]
+    },
+    {
+      "name": "tipo_conector",
+      "displayName": "Tipo de Conector",
+      "queryLines": [
+        "SELECT\n",
+        "  CASE\n",
+        "    WHEN\n",
+        "      user_agent LIKE '%PowerBI%'\n",
+        "      OR user_agent LIKE '%powerbi%'\n",
+        "    THEN\n",
+        "      'PowerBI'\n",
+        "    WHEN\n",
+        "      user_agent LIKE '%pandas%'\n",
+        "      OR user_agent LIKE '%Pandas%'\n",
+        "    THEN\n",
+        "      'Pandas'\n",
+        "    WHEN\n",
+        "      user_agent LIKE '%Spark%'\n",
+        "      OR user_agent LIKE '%spark%'\n",
+        "    THEN\n",
+        "      'Spark'\n",
+        "    WHEN\n",
+        "      user_agent LIKE '%Python%'\n",
+        "      OR user_agent LIKE '%python%'\n",
+        "    THEN\n",
+        "      'Python'\n",
+        "    WHEN\n",
+        "      user_agent LIKE '%Tableau%'\n",
+        "      OR user_agent LIKE '%tableau%'\n",
+        "    THEN\n",
+        "      'Tableau'\n",
+        "    ELSE 'Outro'\n",
+        "  END AS conector,\n",
+        "  COUNT(*) AS total,\n",
+        "  request_params.share AS share_name\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'generateTemporaryTableCredential'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 30 DAY\n",
+        "GROUP BY\n",
+        "  conector,\n",
+        "  share_name\n",
+        "ORDER BY\n",
+        "  total DESC"
+      ]
+    },
+    {
+      "name": "total_recipients",
+      "displayName": "Total de Recipients",
+      "queryLines": [
+        "SELECT\n",
+        "  COUNT(*) AS total_recipients\n",
+        "FROM\n",
+        "  system.information_schema.recipients"
+      ]
+    },
+    {
+      "name": "top_recipients_queries",
+      "displayName": "Top Recipients por Queries",
+      "queryLines": [
+        "SELECT\n",
+        "  request_params.recipient_name AS recipient,\n",
+        "  COUNT(*) AS total_queries,\n",
+        "  request_params.share AS share_name\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'generateTemporaryTableCredential'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 30 DAY\n",
+        "  AND request_params.recipient_name IS NOT NULL\n",
+        "GROUP BY\n",
+        "  recipient,\n",
+        "  share_name\n",
+        "ORDER BY\n",
+        "  total_queries DESC\n",
+        "LIMIT 10"
+      ]
+    },
+    {
+      "name": "bytes_por_dia",
+      "displayName": "Bytes Scanned por Dia",
+      "queryLines": [
+        "SELECT\n",
+        "  DATE(event_time) AS dia,\n",
+        "  SUM(CAST(get_json_object(response.result, '$.scannedAddFileSize') AS BIGINT)) AS bytes_scanned,\n",
+        "  get_json_object(response.result, '$.deltaSharingShareName') AS share_name,\n",
+        "  get_json_object(response.result, '$.deltaSharingRecipientName') AS recipient_name,\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name = 'deltaSharingQueriedTable'\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  dia,\n",
+        "  share_name,\n",
+        "  recipient_name,\n",
+        "  event_date\n",
+        "ORDER BY\n",
+        "  dia"
+      ]
+    },
+    {
+      "name": "queries_por_dia",
+      "displayName": "Queries por Dia",
+      "queryLines": [
+        "SELECT\n",
+        "  DATE(event_time) AS dia,\n",
+        "  COUNT(*) AS total_queries,\n",
+        "  request_params.share AS share_name\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'generateTemporaryTableCredential'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  dia,\n",
+        "  share_name\n",
+        "ORDER BY\n",
+        "  dia"
+      ]
+    },
+    {
+      "name": "share_recipient_map",
+      "displayName": "Mapeamento Share x Recipient",
+      "queryLines": [
+        "SELECT\n",
+        "  srp.share_name AS share_name,\n",
+        "  srp.recipient_name AS recipient_name,\n",
+        "  srp.privilege_type AS privilegio,\n",
+        "  srp.grantor AS concedido_por\n",
+        "FROM\n",
+        "  system.information_schema.share_recipient_privileges srp\n",
+        "ORDER BY\n",
+        "  srp.share_name,\n",
+        "  srp.recipient_name"
+      ]
+    },
+    {
+      "name": "top_tabelas",
+      "displayName": "Top Tabelas Acessadas",
+      "queryLines": [
+        "SELECT\n",
+        "  CONCAT(request_params.share, '.', request_params.schema, '.', request_params.name) AS tabela,\n",
+        "  COUNT(*) AS total_acessos,\n",
+        "  request_params.share AS share_name\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN ('deltaSharingQueryTable', 'deltaSharingQueryTableChanges')\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 30 DAY\n",
+        "GROUP BY\n",
+        "  tabela,\n",
+        "  share_name\n",
+        "ORDER BY\n",
+        "  total_acessos DESC\n",
+        "LIMIT 10"
+      ]
+    },
+    {
+      "name": "total_shares",
+      "displayName": "Total de Shares Ativos",
+      "queryLines": [
+        "SELECT\n",
+        "  COUNT(*) AS total_shares\n",
+        "FROM\n",
+        "  system.information_schema.shares"
+      ]
+    },
+    {
+      "name": "token_status",
+      "displayName": "Status dos Tokens",
+      "queryLines": [
+        "SELECT\n",
+        "  r.recipient_name AS recipient,\n",
+        "  r.authentication_type AS tipo_autenticacao,\n",
+        "  r.created AS criado_em,\n",
+        "  rt.expiration_time AS expiracao_token,\n",
+        "  CASE\n",
+        "    WHEN rt.expiration_time IS NULL THEN 'Sem Token'\n",
+        "    WHEN rt.expiration_time < NOW() THEN '⚠️ Expirado'\n",
+        "    WHEN rt.expiration_time < NOW() + INTERVAL 30 DAY THEN '⚡ Expira em breve'\n",
+        "    ELSE '✅ Válido'\n",
+        "  END AS status\n",
+        "FROM\n",
+        "  system.information_schema.recipients r\n",
+        "    LEFT JOIN system.information_schema.recipient_tokens rt\n",
+        "      ON r.recipient_name = rt.recipient_name\n",
+        "ORDER BY\n",
+        "  rt.expiration_time ASC"
+      ]
+    },
+    {
+      "name": "egress_recipient",
+      "displayName": "Egress por Recipient",
+      "queryLines": [
+        "SELECT\n",
+        "  r.recipient_name AS recipient,\n",
+        "  r.recipient_name AS recipient_name,\n",
+        "  SUM(u.usage_quantity) AS total_egress,\n",
+        "  u.usage_date AS event_date\n",
+        "FROM\n",
+        "  system.billing.usage u\n",
+        "    JOIN system.information_schema.recipients r\n",
+        "      ON u.usage_metadata.recipient_id = r.recipient_id\n",
+        "WHERE\n",
+        "  u.billing_origin_product = 'NETWORKING'\n",
+        "  AND u.usage_metadata.associated_product = 'DATA_SHARING'\n",
+        "  AND u.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  r.recipient_name,\n",
+        "  u.usage_date\n",
+        "ORDER BY\n",
+        "  total_egress DESC"
+      ]
+    },
+    {
+      "name": "filter_recipients",
+      "displayName": "Filtro Recipients",
+      "queryLines": [
+        "SELECT DISTINCT\n",
+        "  recipient_name\n",
+        "FROM\n",
+        "  system.information_schema.recipients\n",
+        "ORDER BY\n",
+        "  recipient_name"
+      ]
+    },
+    {
+      "name": "dbus_materializacao",
+      "displayName": "DBUs de Materialização",
+      "queryLines": [
+        "SELECT\n",
+        "  bu.usage_date AS dia,\n",
+        "  SUM(bu.usage_quantity) AS total_dbus,\n",
+        "  dm.share_name AS share_name,\n",
+        "  srp.recipient_name AS recipient_name,\n",
+        "  bu.usage_date AS event_date\n",
+        "FROM\n",
+        "  system.billing.usage bu\n",
+        "    INNER JOIN system.sharing.materialization_history dm\n",
+        "      ON dm.sharing_materialization_id = bu.usage_metadata.sharing_materialization_id\n",
+        "    LEFT JOIN system.information_schema.share_recipient_privileges srp\n",
+        "      ON srp.share_name = dm.share_name\n",
+        "WHERE\n",
+        "  bu.billing_origin_product = 'DATA_SHARING'\n",
+        "  AND bu.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  dia,\n",
+        "  dm.share_name,\n",
+        "  srp.recipient_name,\n",
+        "  event_date\n",
+        "ORDER BY\n",
+        "  dia"
+      ]
+    },
+    {
+      "name": "ips_origem",
+      "displayName": "IPs de Origem",
+      "queryLines": [
+        "SELECT\n",
+        "  request_params.recipient_name AS recipient,\n",
+        "  request_params.recipient_name AS recipient_name,\n",
+        "  CONCAT(SUBSTRING_INDEX(source_ip_address, '.', 2), '.***.**') AS ip_origem,\n",
+        "  COUNT(*) AS total_requests,\n",
+        "  MIN(event_time) AS primeiro_acesso,\n",
+        "  MAX(event_time) AS ultimo_acesso,\n",
+        "  request_params.share AS share_name,\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'deltaSharingQueryTable', 'deltaSharingQueryTableChanges', 'generateTemporaryTableCredential'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "  AND source_ip_address IS NOT NULL\n",
+        "GROUP BY\n",
+        "  request_params.recipient_name,\n",
+        "  CONCAT(SUBSTRING_INDEX(source_ip_address, '.', 2), '.***.**'),\n",
+        "  request_params.share,\n",
+        "  event_date\n",
+        "ORDER BY\n",
+        "  total_requests DESC"
+      ]
+    },
+    {
+      "name": "alteracoes_recentes",
+      "displayName": "Alterações Recentes",
+      "queryLines": [
+        "SELECT\n",
+        "  event_time AS data_hora,\n",
+        "  action_name AS acao,\n",
+        "  user_identity.email AS executado_por,\n",
+        "  COALESCE(\n",
+        "    request_params.name,\n",
+        "    request_params.share_name,\n",
+        "    request_params.recipient_name\n",
+        "  ) AS objeto_alterado,\n",
+        "  response.status_code AS status,\n",
+        "  CASE\n",
+        "    WHEN\n",
+        "      action_name IN ('createShare', 'updateShare', 'deleteShare')\n",
+        "    THEN\n",
+        "      COALESCE(request_params.share_name, request_params.name)\n",
+        "  END AS share_name,\n",
+        "  CASE\n",
+        "    WHEN\n",
+        "      action_name IN ('createRecipient', 'updateRecipient', 'deleteRecipient')\n",
+        "    THEN\n",
+        "      COALESCE(request_params.recipient_name, request_params.name)\n",
+        "  END AS recipient_name,\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name IN (\n",
+        "    'createShare',\n",
+        "    'updateShare',\n",
+        "    'deleteShare',\n",
+        "    'createRecipient',\n",
+        "    'updateRecipient',\n",
+        "    'deleteRecipient'\n",
+        "  )\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "ORDER BY\n",
+        "  event_time DESC"
+      ]
+    },
+    {
+      "name": "acesso_negado",
+      "displayName": "Acessos Negados por IP",
+      "queryLines": [
+        "SELECT\n",
+        "  CONCAT(SUBSTRING_INDEX(source_ip_address, '.', 2), '.***.**') AS ip,\n",
+        "  request_params.recipient_name AS recipient,\n",
+        "  request_params.recipient_name AS recipient_name,\n",
+        "  action_name AS acao,\n",
+        "  COUNT(*) AS tentativas_negadas,\n",
+        "  MIN(event_time) AS primeira_tentativa,\n",
+        "  MAX(event_time) AS ultima_tentativa,\n",
+        "  request_params.share AS share_name,\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  request_params.is_ip_access_denied = 'true'\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 30 DAY\n",
+        "GROUP BY\n",
+        "  CONCAT(SUBSTRING_INDEX(source_ip_address, '.', 2), '.***.**'),\n",
+        "  request_params.recipient_name,\n",
+        "  action_name,\n",
+        "  request_params.share,\n",
+        "  event_date\n",
+        "ORDER BY\n",
+        "  tentativas_negadas DESC"
+      ]
+    },
+    {
+      "name": "bytes_por_recipient",
+      "displayName": "Bytes por Recipient",
+      "queryLines": [
+        "SELECT\n",
+        "  get_json_object(response.result, '$.deltaSharingRecipientName') AS recipient,\n",
+        "  SUM(CAST(get_json_object(response.result, '$.scannedAddFileSize') AS BIGINT)) AS bytes_scanned,\n",
+        "  get_json_object(response.result, '$.deltaSharingShareName') AS share_name,\n",
+        "  get_json_object(response.result, '$.deltaSharingRecipientName') AS recipient_name,\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  action_name = 'deltaSharingQueriedTable'\n",
+        "  AND event_date >= CURRENT_DATE() - INTERVAL 30 DAY\n",
+        "  AND get_json_object(response.result, '$.deltaSharingRecipientName') IS NOT NULL\n",
+        "GROUP BY\n",
+        "  recipient,\n",
+        "  share_name,\n",
+        "  recipient_name,\n",
+        "  event_date\n",
+        "ORDER BY\n",
+        "  bytes_scanned DESC"
+      ]
+    },
+    {
+      "name": "filter_date",
+      "displayName": "Filtro Data",
+      "queryLines": [
+        "SELECT DISTINCT\n",
+        "  event_date\n",
+        "FROM\n",
+        "  system.access.audit\n",
+        "WHERE\n",
+        "  event_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "ORDER BY\n",
+        "  event_date"
+      ]
+    },
+    {
+      "name": "filter_shares",
+      "displayName": "Filtro Shares",
+      "queryLines": [
+        "SELECT DISTINCT\n",
+        "  share_name\n",
+        "FROM\n",
+        "  system.information_schema.shares\n",
+        "ORDER BY\n",
+        "  share_name"
+      ]
+    },
+    {
+      "name": "custo_sharing_dia",
+      "displayName": "Custo Sharing por Dia",
+      "queryLines": [
+        "SELECT\n",
+        "  bu.usage_date AS dia,\n",
+        "  bu.sku_name,\n",
+        "  SUM(bu.usage_quantity) AS total_dbus,\n",
+        "  ROUND(SUM(bu.usage_quantity * lp.pricing.effective_list.default), 2) AS custo_usd,\n",
+        "  bu.usage_date AS event_date\n",
+        "FROM\n",
+        "  system.billing.usage bu\n",
+        "    LEFT JOIN system.billing.list_prices lp\n",
+        "      ON bu.sku_name = lp.sku_name\n",
+        "      AND lp.price_start_time <= bu.usage_start_time\n",
+        "      AND (\n",
+        "        lp.price_end_time IS NULL\n",
+        "        OR lp.price_end_time >= bu.usage_start_time\n",
+        "      )\n",
+        "      AND lp.currency_code = 'USD'\n",
+        "WHERE\n",
+        "  bu.billing_origin_product = 'DATA_SHARING'\n",
+        "  AND bu.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  bu.usage_date,\n",
+        "  bu.sku_name\n",
+        "ORDER BY\n",
+        "  dia"
+      ]
+    },
+    {
+      "name": "custo_sharing_recipient",
+      "displayName": "Custo por Recipient",
+      "queryLines": [
+        "SELECT\n",
+        "  COALESCE(dm.share_name, 'N/A') AS share_name,\n",
+        "  COALESCE(srp.recipient_name, 'N/A') AS recipient_name,\n",
+        "  COALESCE(srp.recipient_name, 'N/A') AS recipient_name_filter,\n",
+        "  COALESCE(dm.share_name, 'N/A') AS share_name_filter,\n",
+        "  SUM(bu.usage_quantity) AS total_dbus,\n",
+        "  ROUND(SUM(bu.usage_quantity * lp.pricing.effective_list.default), 2) AS custo_usd,\n",
+        "  bu.usage_date AS event_date\n",
+        "FROM\n",
+        "  system.billing.usage bu\n",
+        "    LEFT JOIN system.sharing.materialization_history dm\n",
+        "      ON dm.sharing_materialization_id = bu.usage_metadata.sharing_materialization_id\n",
+        "    LEFT JOIN system.information_schema.share_recipient_privileges srp\n",
+        "      ON srp.share_name = dm.share_name\n",
+        "    LEFT JOIN system.billing.list_prices lp\n",
+        "      ON bu.sku_name = lp.sku_name\n",
+        "      AND lp.price_start_time <= bu.usage_start_time\n",
+        "      AND (\n",
+        "        lp.price_end_time IS NULL\n",
+        "        OR lp.price_end_time >= bu.usage_start_time\n",
+        "      )\n",
+        "      AND lp.currency_code = 'USD'\n",
+        "WHERE\n",
+        "  bu.billing_origin_product = 'DATA_SHARING'\n",
+        "  AND bu.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  dm.share_name,\n",
+        "  srp.recipient_name,\n",
+        "  bu.usage_date\n",
+        "ORDER BY\n",
+        "  custo_usd DESC"
+      ]
+    },
+    {
+      "name": "custo_sharing_total",
+      "displayName": "Custo Total Sharing",
+      "queryLines": [
+        "SELECT\n",
+        "  SUM(bu.usage_quantity) AS total_dbus,\n",
+        "  ROUND(SUM(bu.usage_quantity * lp.pricing.effective_list.default), 2) AS custo_total_usd\n",
+        "FROM\n",
+        "  system.billing.usage bu\n",
+        "    LEFT JOIN system.billing.list_prices lp\n",
+        "      ON bu.sku_name = lp.sku_name\n",
+        "      AND lp.price_start_time <= bu.usage_start_time\n",
+        "      AND (\n",
+        "        lp.price_end_time IS NULL\n",
+        "        OR lp.price_end_time >= bu.usage_start_time\n",
+        "      )\n",
+        "      AND lp.currency_code = 'USD'\n",
+        "WHERE\n",
+        "  bu.billing_origin_product = 'DATA_SHARING'\n",
+        "  AND bu.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY"
+      ]
+    },
+    {
+      "name": "custo_sharing_sku",
+      "displayName": "Custo por SKU",
+      "queryLines": [
+        "SELECT\n",
+        "  bu.sku_name,\n",
+        "  SUM(bu.usage_quantity) AS total_dbus,\n",
+        "  ROUND(SUM(bu.usage_quantity * lp.pricing.effective_list.default), 2) AS custo_usd,\n",
+        "  bu.usage_date AS event_date\n",
+        "FROM\n",
+        "  system.billing.usage bu\n",
+        "    LEFT JOIN system.billing.list_prices lp\n",
+        "      ON bu.sku_name = lp.sku_name\n",
+        "      AND lp.price_start_time <= bu.usage_start_time\n",
+        "      AND (\n",
+        "        lp.price_end_time IS NULL\n",
+        "        OR lp.price_end_time >= bu.usage_start_time\n",
+        "      )\n",
+        "      AND lp.currency_code = 'USD'\n",
+        "WHERE\n",
+        "  bu.billing_origin_product = 'DATA_SHARING'\n",
+        "  AND bu.usage_date >= CURRENT_DATE() - INTERVAL 90 DAY\n",
+        "GROUP BY\n",
+        "  bu.sku_name,\n",
+        "  bu.usage_date\n",
+        "ORDER BY\n",
+        "  custo_usd DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "bdf0a113",
+      "displayName": "Inventário de Sharing",
+      "layout": [
+        {
+          "widget": {
+            "name": "header_p1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## 📦 Inventário de Sharing"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "total_shares",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "total_shares",
+                  "fields": [
+                    {
+                      "name": "count(total_shares)",
+                      "expression": "COUNT(`total_shares`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Shares Ativos"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(total_shares)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "total_recipients",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "total_recipients",
+                  "fields": [
+                    {
+                      "name": "count(total_recipients)",
+                      "expression": "COUNT(`total_recipients`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Recipients Configurados"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(total_recipients)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "share_recipient_map",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "share_recipient_map",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "privilegio",
+                      "expression": "`privilegio`"
+                    },
+                    {
+                      "name": "concedido_por",
+                      "expression": "`concedido_por`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Mapeamento Share ↔ Recipient"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "share_name"
+                  },
+                  {
+                    "fieldName": "recipient_name"
+                  },
+                  {
+                    "fieldName": "privilegio"
+                  },
+                  {
+                    "fieldName": "concedido_por"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "token_status",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "token_status",
+                  "fields": [
+                    {
+                      "name": "recipient",
+                      "expression": "`recipient`"
+                    },
+                    {
+                      "name": "tipo_autenticacao",
+                      "expression": "`tipo_autenticacao`"
+                    },
+                    {
+                      "name": "criado_em",
+                      "expression": "`criado_em`"
+                    },
+                    {
+                      "name": "expiracao_token",
+                      "expression": "`expiracao_token`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Status dos Tokens dos Recipients"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "recipient"
+                  },
+                  {
+                    "fieldName": "tipo_autenticacao"
+                  },
+                  {
+                    "fieldName": "criado_em"
+                  },
+                  {
+                    "fieldName": "expiracao_token"
+                  },
+                  {
+                    "fieldName": "status"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "atividade",
+      "displayName": "Atividade dos Parceiros",
+      "layout": [
+        {
+          "widget": {
+            "name": "header_p2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## 📊 Atividade dos Parceiros"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "queries_dia",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "queries_por_dia",
+                  "fields": [
+                    {
+                      "name": "dia",
+                      "expression": "`dia`"
+                    },
+                    {
+                      "name": "sum(total_queries)",
+                      "expression": "SUM(`total_queries`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Queries por Dia",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "dia",
+                  "displayName": "dia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_queries)",
+                  "displayName": "total_queries",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "top_recipients",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_recipients_queries",
+                  "fields": [
+                    {
+                      "name": "recipient",
+                      "expression": "`recipient`"
+                    },
+                    {
+                      "name": "sum(total_queries)",
+                      "expression": "SUM(`total_queries`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Recipients por Queries"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "recipient",
+                  "displayName": "recipient",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_queries)",
+                  "displayName": "total_queries",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "recipient",
+                  "displayName": "recipient",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "top_tabelas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_tabelas",
+                  "fields": [
+                    {
+                      "name": "tabela",
+                      "expression": "`tabela`"
+                    },
+                    {
+                      "name": "sum(total_acessos)",
+                      "expression": "SUM(`total_acessos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Tabelas Mais Acessadas"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "tabela",
+                  "displayName": "tabela",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_acessos)",
+                  "displayName": "total_acessos",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "tabela",
+                  "displayName": "tabela",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tipo_conector",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tipo_conector",
+                  "fields": [
+                    {
+                      "name": "conector",
+                      "expression": "`conector`"
+                    },
+                    {
+                      "name": "sum(total)",
+                      "expression": "SUM(`total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Tipo de Conector do Parceiro",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "conector",
+                  "displayName": "conector",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total)",
+                  "displayName": "total",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "conector",
+                  "displayName": "conector",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "heatmap_atividade",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "heatmap_atividade",
+                  "fields": [
+                    {
+                      "name": "sum(total)",
+                      "expression": "SUM(`total`)"
+                    },
+                    {
+                      "name": "hora",
+                      "expression": "`hora`"
+                    },
+                    {
+                      "name": "dia_semana",
+                      "expression": "`dia_semana`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Atividade por Dia da Semana e Hora"
+              },
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "hora",
+                  "displayName": "Hora",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "dia_semana",
+                  "displayName": "Dia da Semana",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "sum(total)",
+                  "displayName": "Total",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 11,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "volume_custos",
+      "displayName": "Volume de Dados",
+      "layout": [
+        {
+          "widget": {
+            "name": "header_p3",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## 💰 Volume de Dados"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "bytes_dia",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "bytes_por_dia",
+                  "fields": [
+                    {
+                      "name": "dia",
+                      "expression": "`dia`"
+                    },
+                    {
+                      "name": "sum(bytes_scanned)",
+                      "expression": "SUM(`bytes_scanned`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Bytes Scanned por Dia",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "dia",
+                  "displayName": "dia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(bytes_scanned)",
+                  "displayName": "bytes_scanned",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "bytes_recipient",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "bytes_por_recipient",
+                  "fields": [
+                    {
+                      "name": "recipient",
+                      "expression": "`recipient`"
+                    },
+                    {
+                      "name": "sum(bytes_scanned)",
+                      "expression": "SUM(`bytes_scanned`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Bytes Scanned por Recipient"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "recipient",
+                  "displayName": "recipient",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(bytes_scanned)",
+                  "displayName": "bytes_scanned",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "recipient",
+                  "displayName": "recipient",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "seguranca",
+      "displayName": "Segurança & Compliance",
+      "layout": [
+        {
+          "widget": {
+            "name": "header_p4",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## 🔒 Segurança & Compliance"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "ips_origem",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ips_origem",
+                  "fields": [
+                    {
+                      "name": "recipient",
+                      "expression": "`recipient`"
+                    },
+                    {
+                      "name": "ip_origem",
+                      "expression": "`ip_origem`"
+                    },
+                    {
+                      "name": "total_requests",
+                      "expression": "`total_requests`"
+                    },
+                    {
+                      "name": "primeiro_acesso",
+                      "expression": "`primeiro_acesso`"
+                    },
+                    {
+                      "name": "ultimo_acesso",
+                      "expression": "`ultimo_acesso`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "IPs de Origem dos Parceiros"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "recipient"
+                  },
+                  {
+                    "fieldName": "ip_origem"
+                  },
+                  {
+                    "fieldName": "total_requests"
+                  },
+                  {
+                    "fieldName": "primeiro_acesso"
+                  },
+                  {
+                    "fieldName": "ultimo_acesso"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "acesso_negado",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "acesso_negado",
+                  "fields": [
+                    {
+                      "name": "ip",
+                      "expression": "`ip`"
+                    },
+                    {
+                      "name": "recipient",
+                      "expression": "`recipient`"
+                    },
+                    {
+                      "name": "acao",
+                      "expression": "`acao`"
+                    },
+                    {
+                      "name": "tentativas_negadas",
+                      "expression": "`tentativas_negadas`"
+                    },
+                    {
+                      "name": "primeira_tentativa",
+                      "expression": "`primeira_tentativa`"
+                    },
+                    {
+                      "name": "ultima_tentativa",
+                      "expression": "`ultima_tentativa`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Tentativas de Acesso Negadas por IP"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "ip"
+                  },
+                  {
+                    "fieldName": "recipient"
+                  },
+                  {
+                    "fieldName": "acao"
+                  },
+                  {
+                    "fieldName": "tentativas_negadas"
+                  },
+                  {
+                    "fieldName": "primeira_tentativa"
+                  },
+                  {
+                    "fieldName": "ultima_tentativa"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "alteracoes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "alteracoes_recentes",
+                  "fields": [
+                    {
+                      "name": "data_hora",
+                      "expression": "`data_hora`"
+                    },
+                    {
+                      "name": "acao",
+                      "expression": "`acao`"
+                    },
+                    {
+                      "name": "executado_por",
+                      "expression": "`executado_por`"
+                    },
+                    {
+                      "name": "objeto_alterado",
+                      "expression": "`objeto_alterado`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Alterações Recentes em Shares e Recipients"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "data_hora"
+                  },
+                  {
+                    "fieldName": "acao"
+                  },
+                  {
+                    "fieldName": "executado_por"
+                  },
+                  {
+                    "fieldName": "objeto_alterado"
+                  },
+                  {
+                    "fieldName": "status"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "global_filters",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "date_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984f71e2ea97f39c829edabf4_event_date",
+                "query": {
+                  "datasetName": "filter_date",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_event_date",
+                "query": {
+                  "datasetName": "bytes_por_dia",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_event_date",
+                "query": {
+                  "datasetName": "bytes_por_recipient",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_event_date",
+                "query": {
+                  "datasetName": "dbus_materializacao",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983a81796bfa0ab4f153d9621_event_date",
+                "query": {
+                  "datasetName": "egress_recipient",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_event_date",
+                "query": {
+                  "datasetName": "ips_origem",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_event_date",
+                "query": {
+                  "datasetName": "acesso_negado",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_event_date",
+                "query": {
+                  "datasetName": "alteracoes_recentes",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782191ccdb8e4fe0842309513_event_date",
+                "query": {
+                  "datasetName": "custo_sharing_dia",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782fd1458a11eb94bf614c4a9_event_date",
+                "query": {
+                  "datasetName": "custo_sharing_sku",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_event_date",
+                "query": {
+                  "datasetName": "custo_sharing_recipient",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Período",
+                  "fields": []
+                }
+              },
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984f71e2ea97f39c829edabf4_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983a81796bfa0ab4f153d9621_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782191ccdb8e4fe0842309513_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782fd1458a11eb94bf614c4a9_event_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_event_date"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "recipient_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983d91498905571921cf0edc6_recipient_name",
+                "query": {
+                  "datasetName": "filter_recipients",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983a81796bfa0ab4f153d9621_recipient_name",
+                "query": {
+                  "datasetName": "egress_recipient",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_recipient_name",
+                "query": {
+                  "datasetName": "bytes_por_dia",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_recipient_name",
+                "query": {
+                  "datasetName": "bytes_por_recipient",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_recipient_name",
+                "query": {
+                  "datasetName": "dbus_materializacao",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_recipient_name",
+                "query": {
+                  "datasetName": "ips_origem",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_recipient_name",
+                "query": {
+                  "datasetName": "acesso_negado",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_recipient_name",
+                "query": {
+                  "datasetName": "alteracoes_recentes",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_recipient_name",
+                "query": {
+                  "datasetName": "custo_sharing_recipient",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "recipient_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Recipient",
+                  "fields": []
+                }
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983d91498905571921cf0edc6_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c983a81796bfa0ab4f153d9621_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_recipient_name"
+                  },
+                  {
+                    "fieldName": "recipient_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_recipient_name"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "share_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98528124290f8410cf27c1a92_share_name",
+                "query": {
+                  "datasetName": "filter_shares",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976c91e5695d75cedbcdee9b8_share_name",
+                "query": {
+                  "datasetName": "queries_por_dia",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c97668149dbf8edd1ae8d30881_share_name",
+                "query": {
+                  "datasetName": "top_recipients_queries",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9772812b3853dfe1d1675418f_share_name",
+                "query": {
+                  "datasetName": "top_tabelas",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9760a1449b4e8ad1c1d910e5b_share_name",
+                "query": {
+                  "datasetName": "tipo_conector",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c975db17ee8c6b6935bd4194fb_share_name",
+                "query": {
+                  "datasetName": "heatmap_atividade",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_share_name",
+                "query": {
+                  "datasetName": "bytes_por_dia",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_share_name",
+                "query": {
+                  "datasetName": "bytes_por_recipient",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_share_name",
+                "query": {
+                  "datasetName": "dbus_materializacao",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_share_name",
+                "query": {
+                  "datasetName": "ips_origem",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_share_name",
+                "query": {
+                  "datasetName": "acesso_negado",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_share_name",
+                "query": {
+                  "datasetName": "alteracoes_recentes",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_share_name",
+                "query": {
+                  "datasetName": "custo_sharing_recipient",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "share_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Share",
+                  "fields": []
+                }
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98528124290f8410cf27c1a92_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976c91e5695d75cedbcdee9b8_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c97668149dbf8edd1ae8d30881_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9772812b3853dfe1d1675418f_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9760a1449b4e8ad1c1d910e5b_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c975db17ee8c6b6935bd4194fb_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c976971504b650786a10467a34_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c984c81eec831082607a9a21f3_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9840e16db814787f5e4c698ed_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9843c13fe81c325109ec622c5_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c98499152fad3d200ff6f81f5f_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8c9846b132ba9b5bd0d13623951_share_name"
+                  },
+                  {
+                    "fieldName": "share_name",
+                    "queryName": "dashboards/01f1c8c93863109fafe5d9a65f688e28/datasets/01f1c8d782761e54b6873d40c9b9a256_share_name"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "custos",
+      "displayName": "Custos Delta Sharing",
+      "layout": [
+        {
+          "widget": {
+            "name": "header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## 💲 Custos Delta Sharing"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "total_dbus",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_total",
+                  "fields": [
+                    {
+                      "name": "sum(total_dbus)",
+                      "expression": "SUM(`total_dbus`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total DBUs (90d)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_dbus)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "total_custo",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_total",
+                  "fields": [
+                    {
+                      "name": "sum(custo_total_usd)",
+                      "expression": "SUM(`custo_total_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Custo Total USD (90d)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(custo_total_usd)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "custo_dia",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_dia",
+                  "fields": [
+                    {
+                      "name": "dia",
+                      "expression": "`dia`"
+                    },
+                    {
+                      "name": "sum(custo_usd)",
+                      "expression": "SUM(`custo_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Custo por Dia (USD)"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "dia",
+                  "displayName": "dia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(custo_usd)",
+                  "displayName": "custo_usd",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "dia",
+                  "displayName": "dia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "custo_sku",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_sku",
+                  "fields": [
+                    {
+                      "name": "sku_name",
+                      "expression": "`sku_name`"
+                    },
+                    {
+                      "name": "sum(custo_usd)",
+                      "expression": "SUM(`custo_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Custo por SKU"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sku_name",
+                  "displayName": "sku_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(custo_usd)",
+                  "displayName": "custo_usd",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "sku_name",
+                  "displayName": "sku_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "custo_recipient",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_recipient",
+                  "fields": [
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "sum(custo_usd)",
+                      "expression": "SUM(`custo_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Custo por Recipient"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "recipient_name",
+                  "displayName": "recipient_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(custo_usd)",
+                  "displayName": "custo_usd",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "recipient_name",
+                  "displayName": "recipient_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tabela_detalhes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "custo_sharing_recipient",
+                  "fields": [
+                    {
+                      "name": "share_name",
+                      "expression": "`share_name`"
+                    },
+                    {
+                      "name": "recipient_name",
+                      "expression": "`recipient_name`"
+                    },
+                    {
+                      "name": "sum(total_dbus)",
+                      "expression": "SUM(`total_dbus`)"
+                    },
+                    {
+                      "name": "sum(custo_usd)",
+                      "expression": "SUM(`custo_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Detalhamento de Custos por Share e Recipient"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "share_name"
+                  },
+                  {
+                    "fieldName": "recipient_name"
+                  },
+                  {
+                    "fieldName": "sum(total_dbus)"
+                  },
+                  {
+                    "fieldName": "sum(custo_usd)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
